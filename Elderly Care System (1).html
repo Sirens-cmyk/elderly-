@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه هوشمند همراهی و مراقبت از سالمندان | مهرپرور</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Vazirmatn for Persian typography) -->
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                        },
+                        urgent: {
+                            500: '#ef4444',
+                            600: '#dc2626',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f8fafc;
+        }
+        .pulse-emergency {
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- SOS Alert Overlay Modal (Hidden by default) -->
+    <div id="sosModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border-4 border-red-500 animate-bounce-once">
+            <div class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                <i class="fa-solid fa-triangle-exclamation text-4xl"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">هشدار اضطراری فعال شد!</h3>
+            <p class="text-slate-600 text-sm mb-6">سیستم در حال برقراری تماس فوری با مرکز اورژانس و ارسال موقعیت مکانی به خانواده سالمند است.</p>
+            <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-right">
+                <div class="flex items-center gap-3 text-red-700 font-semibold mb-1">
+                    <i class="fa-solid fa-phone-volume"></i>
+                    <span>در حال فراخوانی مرکز پشتیبانی ۲۴ ساعته...</span>
+                </div>
+                <div class="text-xs text-red-500">موقعیت دقیق جغرافیایی و پرونده پزشکی ارسال شد.</div>
+            </div>
+            <button onclick="closeSosModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 rounded-xl transition-all">
+                انصراف (اعلام وضعیت سفید)
+            </button>
+        </div>
+    </div>
+
+    <!-- Booking Confirmation Modal -->
+    <div id="bookingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl text-right">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
+                <h3 class="text-xl font-bold text-brand-800">تأیید و ثبت درخواست مراقب</h3>
+                <button onclick="closeBookingModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-600 mb-6">
+                <div class="flex justify-between bg-slate-50 p-3 rounded-xl">
+                    <span class="font-medium text-slate-500">نوع سرویس:</span>
+                    <span id="summaryService" class="font-bold text-slate-800">--</span>
+                </div>
+                <div class="flex justify-between bg-slate-50 p-3 rounded-xl">
+                    <span class="font-medium text-slate-500">تاریخ و زمان:</span>
+                    <span id="summaryDateTime" class="font-bold text-slate-800">--</span>
+                </div>
+                <div class="flex justify-between bg-slate-50 p-3 rounded-xl">
+                    <span class="font-medium text-slate-500">محدوده دریافت خدمت:</span>
+                    <span id="summaryArea" class="font-bold text-slate-800">--</span>
+                </div>
+                <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs leading-relaxed">
+                    <i class="fa-solid fa-circle-check ml-1"></i>
+                    پس از ثبت نهایی، نزدیک‌ترین پرستار/همراه تأییدشده با شما تماس خواهد گرفت و جزئیات خدمت‌رسانی هماهنگ می‌شود.
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="confirmBooking()" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition-all">
+                    تأیید نهایی و ارسال درخواست
+                </button>
+                <button onclick="closeBookingModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-5 py-3 rounded-xl transition-all">
+                    ویرایش
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-gradient-to-tr from-brand-600 to-teal-400 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                        <i class="fa-solid fa-hand-holding-heart text-2xl"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-extrabold text-slate-900 tracking-tight block">مهرپَروَر</span>
+                        <span class="text-xs text-brand-600 font-medium block">سامانه مراقبت هوشمند سالمندان</span>
+                    </div>
+                </div>
+
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+                    <a href="#dashboard" class="hover:text-brand-600 transition-colors">وضعیت سلامتی</a>
+                    <a href="#medication" class="hover:text-brand-600 transition-colors">یادآور داروها</a>
+                    <a href="#services" class="hover:text-brand-600 transition-colors">درخواست همراه</a>
+                    <a href="#features" class="hover:text-brand-600 transition-colors">مزایا و قابلیت‌ها</a>
+                </nav>
+
+                <!-- Actions & SOS Quick Button -->
+                <div class="flex items-center gap-3">
+                    <button onclick="triggerSos()" class="pulse-emergency bg-urgent-500 hover:bg-urgent-600 text-white px-4 py-2.5 rounded-2xl font-bold flex items-center gap-2 text-sm transition-all shadow-lg shadow-red-500/30">
+                        <i class="fa-solid fa-bell animate-bounce"></i>
+                        <span>دکمه اضطراری SOS</span>
+                    </button>
+                    <button class="hidden sm:flex bg-brand-50 text-brand-700 hover:bg-brand-100 px-4 py-2.5 rounded-2xl font-semibold text-sm transition-all">
+                        ورود به پنل خانواده
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 flex-grow">
+
+        <!-- Hero Section & Vitals Dashboard -->
+        <section id="dashboard" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Hero Introduction -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    سیستم مانیتورینگ زنده فعال است
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
+                    مراقبت هوشمند، آسودگی خاطر برای خانواده و سالمندان
+                </h1>
+                <p class="text-slate-600 text-base leading-relaxed">
+                    سامانه جامعه مهرپرور به خانواده‌ها کمک می‌کند تا وضعیت سلامتی، مصرف داروها و نیاز به همراه یا پرستار روزانه سالمندان عزیز خود را به راحتی و در لحظه مدیریت نمایند.
+                </p>
+                <div class="flex flex-wrap gap-4 pt-2">
+                    <a href="#services" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-3.5 rounded-2xl transition-all shadow-lg shadow-brand-600/20 text-sm">
+                        درخواست پرستار / همراه
+                    </a>
+                    <a href="#medication" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold px-6 py-3.5 rounded-2xl transition-all text-sm">
+                        تنظیم جدول دارویی
+                    </a>
+                </div>
+            </div>
+
+            <!-- Interactive Vitals Card (Elderly Real-time Status) -->
+            <div class="lg:col-span-7 bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-3">
+                        <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120" alt="پروفایل سالمند" class="w-14 h-14 rounded-2xl object-cover border-2 border-brand-500">
+                        <div>
+                            <h2 class="font-bold text-slate-800 text-lg">وضعیت لحظه‌ای: آقای محمد صادقی</h2>
+                            <span class="text-xs text-slate-400">آخرین بروزرسانی: ۲ دقیقه پیش (دستبند هوشمند)</span>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 bg-emerald-50 text-emerald-600 font-medium text-xs rounded-lg border border-emerald-200">
+                        وضعیت: طبیعی
+                    </span>
+                </div>
+
+                <!-- Vital Metrics Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <!-- Heart Rate -->
+                    <div class="bg-rose-50/60 border border-rose-100 p-4 rounded-2xl flex flex-col justify-between">
+                        <div class="flex justify-between items-center text-rose-600">
+                            <span class="text-xs font-semibold">ضربان قلب</span>
+                            <i class="fa-solid fa-heart-pulse text-lg animate-pulse"></i>
+                        </div>
+                        <div class="mt-3">
+                            <span class="text-2xl font-black text-slate-800">۷۸</span>
+                            <span class="text-xs text-slate-500">BPM</span>
+                        </div>
+                    </div>
+
+                    <!-- Walking Steps -->
+                    <div class="bg-sky-50/60 border border-sky-100 p-4 rounded-2xl flex flex-col justify-between">
+                        <div class="flex justify-between items-center text-sky-600">
+                            <span class="text-xs font-semibold">پیاده‌روی امروز</span>
+                            <i class="fa-solid fa-person-walking text-lg"></i>
+                        </div>
+                        <div class="mt-3">
+                            <span class="text-2xl font-black text-slate-800">۲,۴۵۰</span>
+                            <span class="text-xs text-slate-500">گام</span>
+                        </div>
+                    </div>
+
+                    <!-- Sleep & Rest -->
+                    <div class="bg-indigo-50/60 border border-indigo-100 p-4 rounded-2xl flex flex-col justify-between">
+                        <div class="flex justify-between items-center text-indigo-600">
+                            <span class="text-xs font-semibold">خواب دیشب</span>
+                            <i class="fa-solid fa-moon text-lg"></i>
+                        </div>
+                        <div class="mt-3">
+                            <span class="text-2xl font-black text-slate-800">۷.۵</span>
+                            <span class="text-xs text-slate-500">ساعت</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Safety Check-in -->
+                <div class="bg-slate-50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-brand-100 text-brand-700 rounded-xl flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div class="text-sm">
+                            <span class="font-bold text-slate-800 block">بررسی اعلام حضور سالمند</span>
+                            <span class="text-xs text-slate-500">اعلام سلامتی روزانه توسط سالمند با دکمه لمسی</span>
+                        </div>
+                    </div>
+                    <button id="checkInBtn" onclick="toggleCheckIn()" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check"></i>
+                        <span id="checkInText">ثبت اعلام سلامتی امروز</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Medication Tracker Section -->
+        <section id="medication" class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-6 mb-6">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-teal-100 text-teal-700 rounded-lg flex items-center justify-center text-sm font-bold">
+                            <i class="fa-solid fa-pills"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-900">یادآور و مدیریت مصرف دارو</h2>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">داروهای امروز را علامت بزنید یا داروی جدیدی اضافه کنید.</p>
+                </div>
+                
+                <!-- Quick Add Form -->
+                <form onsubmit="addMedication(event)" class="flex flex-wrap sm:flex-nowrap gap-2 w-full md:w-auto">
+                    <input type="text" id="medName" placeholder="نام دارو (مثلا: آسپیرین)" required class="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-brand-500 flex-1 sm:w-44">
+                    <input type="text" id="medTime" placeholder="زمان (مثلا: ۸:۰۰ صبح)" required class="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-brand-500 w-28">
+                    <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all whitespace-nowrap">
+                        + افزودن دارو
+                    </button>
+                </form>
+            </div>
+
+            <!-- Medication List -->
+            <div id="medicationList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Javascript will dynamically inject & toggle medications -->
+            </div>
+        </section>
+
+        <!-- Caregiver & Companion Request Form -->
+        <section id="services" class="bg-gradient-to-br from-brand-700 to-teal-800 rounded-3xl p-6 sm:p-10 text-white shadow-2xl relative overflow-hidden">
+            <!-- Decorative SVG Circles -->
+            <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <div class="relative z-10 max-w-3xl">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-brand-100 text-xs font-medium mb-3">
+                    <i class="fa-solid fa-user-nurse"></i>
+                    اعزام مراقب و پرستار متخصص
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold mb-3">رزرو سریع همراه و مراقب سالمند</h2>
+                <p class="text-brand-100 text-sm mb-8 leading-relaxed">
+                    همراهان و پرستاران ما دارای تاییدیه عدم سوءپیشینه و آموزش‌دیده در زمینه مراقبت سالمندان هستند. فرم زیر را جهت ثبت درخواست اولیه پر کنید.
+                </p>
+
+                <!-- Form Card inside Section -->
+                <form onsubmit="handleBookingSubmit(event)" class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    
+                    <!-- Service Type -->
+                    <div>
+                        <label class="block text-xs font-medium text-brand-100 mb-1">نوع خدمت مورد نیاز</label>
+                        <select id="serviceType" class="w-full bg-white text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none font-medium">
+                            <option value="همراهی و هم‌صحبت روزانه">همراهی و هم‌صحبت روزانه (خرید، پیاده‌روی)</option>
+                            <option value="پرستار اختصاصی امور درمانی">پرستار اختصاصی امور درمانی و تزریقات</option>
+                            <option value="مراقبت ۲۴ ساعته شبانه‌روزی">مراقبت کامل ۲۴ ساعته (مقیم)</option>
+                            <option value="همراهی در مراجعه به پزشک">همراهی ویژه جهت مراجعه به بیمارستان/مطب</option>
+                        </select>
+                    </div>
+
+                    <!-- Date & Time -->
+                    <div>
+                        <label class="block text-xs font-medium text-brand-100 mb-1">تاریخ و نوبت مورد نظر</label>
+                        <select id="serviceTime" class="w-full bg-white text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none font-medium">
+                            <option value="امروز - شیفت صبح (۸ تا ۱۶)">امروز - شیفت صبح (۸ تا ۱۶)</option>
+                            <option value="امروز - شیفت عصر (۱۶ تا ۲۴)">امروز - شیفت عصر (۱۶ تا ۲۴)</option>
+                            <option value="فردا - کامل">فردا - کل روز</option>
+                            <option value="شروع از هفته آینده">هماهنگی برای هفته آینده</option>
+                        </select>
+                    </div>
+
+                    <!-- Area/Location -->
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-brand-100 mb-1">محدوده/منطقه سکونت سالمند</label>
+                        <input type="text" id="serviceArea" placeholder="مثال: تهران - منطقه ۵ (آریاشهر)" required class="w-full bg-white text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none font-medium">
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="sm:col-span-2 pt-2">
+                        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold py-3 rounded-xl transition-all shadow-lg text-sm">
+                            مشاهده خلاصه و ثبت درخواست
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Features & Guarantees -->
+        <section id="features" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4">
+                <div class="w-12 h-12 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-1">پشتیبانی ۲۴/۷ اورژانسی</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">تیم مرکز تماس هوشمند به‌صورت شبانه‌روزی آماده پاسخگویی و رسیدگی به هشدارهای SOS سالمند است.</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4">
+                <div class="w-12 h-12 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-1">پرستاران احراز هویت شده</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">تمامی همراهان از گواهی سوءپیشینه و آزمون‌های سنجش صلاحیت روانشناختی عبور کرده‌اند.</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-start gap-4">
+                <div class="w-12 h-12 bg-brand-50 text-brand-600 rounded-xl flex items-center justify-center shrink-0 text-xl font-bold">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 mb-1">گزارش‌دهی آنلاین به خانواده</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">فرزندان می‌توانند وضعیت مصرف دارو و علائم حیاتی والدین خود را از هر جای دنیا پیگیری کنند.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 text-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-hand-holding-heart text-brand-500 text-lg"></i>
+                <span class="font-bold text-slate-200">سامانه مراقبت سالمندان مهرپرور</span>
+                <span>— تمامی حقوق محفوظ است © ۱۴۰۳</span>
+            </div>
+            <div class="flex gap-6">
+                <a href="#" class="hover:text-white transition-colors">قوانین و مقررات</a>
+                <a href="#" class="hover:text-white transition-colors">حریم خصوصی</a>
+                <a href="#" class="hover:text-white transition-colors">تماس با پشتیبانی</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive Logic JavaScript -->
+    <script>
+        // State storage for Medications
+        let medications = [
+            { id: 1, name: 'قرص فشار خون (لوزارتان)', time: '۰۸:۰۰ صبح', taken: true },
+            { id: 2, name: 'مولتی ویتامین سالمندان', time: '۱۳:۰۰ ظهر', taken: false },
+            { id: 3, name: 'قطره چشم', time: '۲۱:۰۰ شب', taken: false }
+        ];
+
+        let hasCheckedInToday = false;
+
+        // Render Medication Cards
+        function renderMedications() {
+            const listEl = document.getElementById('medicationList');
+            listEl.innerHTML = '';
+
+            medications.forEach(med => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                    med.taken 
+                        ? 'bg-emerald-50/50 border-emerald-200' 
+                        : 'bg-slate-50 border-slate-200 hover:border-brand-300'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleMedication(${med.id})" class="w-8 h-8 rounded-xl flex items-center justify-center text-sm transition-all ${
+                            med.taken 
+                                ? 'bg-emerald-500 text-white shadow-sm' 
+                                : 'bg-white border border-slate-300 text-transparent hover:text-slate-300'
+                        }">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                        <div>
+                            <span class="font-semibold text-sm block ${med.taken ? 'line-through text-slate-400' : 'text-slate-800'}">${med.name}</span>
+                            <span class="text-xs text-slate-400"><i class="fa-regular fa-clock ml-1"></i>${med.time}</span>
+                        </div>
+                    </div>
+                    <button onclick="deleteMedication(${med.id})" class="text-slate-300 hover:text-rose-500 text-sm px-2">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        // Toggle Drug status
+        function toggleMedication(id) {
+            medications = medications.map(m => m.id === id ? { ...m, taken: !m.taken } : m);
+            renderMedications();
+        }
+
+        // Delete Drug
+        function deleteMedication(id) {
+            medications = medications.filter(m => m.id !== id);
+            renderMedications();
+        }
+
+        // Add New Drug
+        function addMedication(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('medName');
+            const timeInput = document.getElementById('medTime');
+
+            if (!nameInput.value.trim() || !timeInput.value.trim()) return;
+
+            medications.push({
+                id: Date.now(),
+                name: nameInput.value.trim(),
+                time: timeInput.value.trim(),
+                taken: false
+            });
+
+            nameInput.value = '';
+            timeInput.value = '';
+            renderMedications();
+        }
+
+        // Check-in Toggle
+        function toggleCheckIn() {
+            hasCheckedInToday = !hasCheckedInToday;
+            const btn = document.getElementById('checkInBtn');
+            const txt = document.getElementById('checkInText');
+
+            if (hasCheckedInToday) {
+                btn.className = "w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-2";
+                txt.innerText = "اعلام حضور انجام شد ✓";
+            } else {
+                btn.className = "w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-5 py-2.5 rounded-xl text-xs transition-all flex items-center justify-center gap-2";
+                txt.innerText = "ثبت اعلام سلامتی امروز";
+            }
+        }
+
+        // SOS Modal Triggers
+        function triggerSos() {
+            document.getElementById('sosModal').classList.remove('hidden');
+        }
+
+        function closeSosModal() {
+            document.getElementById('sosModal').classList.add('hidden');
+        }
+
+        // Booking Modal Logic
+        function handleBookingSubmit(e) {
+            e.preventDefault();
+            const service = document.getElementById('serviceType').value;
+            const time = document.getElementById('serviceTime').value;
+            const area = document.getElementById('serviceArea').value;
+
+            document.getElementById('summaryService').innerText = service;
+            document.getElementById('summaryDateTime').innerText = time;
+            document.getElementById('summaryArea').innerText = area;
+
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        function confirmBooking() {
+            alert("درخواست شما با موفقیت در سیستم ثبت شد. کارشناسان ما به زود با شما تماس می‌گیرند.");
+            closeBookingModal();
+        }
+
+        // Initial Load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderMedications();
+        });
+    </script>
+</body>
+</html>
